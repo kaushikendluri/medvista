@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medvista}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medvista}
+      POSTGRES_DB: ${POSTGRES_DB:-medvista}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-medvista}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  orthanc:
+    image: orthancteam/orthanc:24.11.3
+    ports:
+      - "8042:8042" # REST / DICOMweb
+      - "4242:4242" # DICOM protocol
+    environment:
+      ORTHANC__REGISTERED_USERS: '{"orthanc": "orthanc"}'
+      ORTHANC__DICOM_WEB__ENABLE: "true"
+    volumes:
+      - orthanc-db:/var/lib/orthanc/db
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-medvista}:${POSTGRES_PASSWORD:-medvista}@postgres:5432/${POSTGRES_DB:-medvista}
+      REDIS_URL: redis://redis:6379/0
+      DICOM_SERVER_URL: http://orthanc:8042
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  pgdata:
+  orthanc-db:
