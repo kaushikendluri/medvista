@@ -227,6 +227,17 @@ def list_series_instances(
     return [InstanceRead.model_validate(i) for i in instances]
 
 
+def _resolve_instance(db: Session, *, study_id: uuid.UUID, instance_id: uuid.UUID) -> ImagingInstance:
+    instance = db.scalar(
+        select(ImagingInstance)
+        .join(Series, Series.id == ImagingInstance.series_id)
+        .where(ImagingInstance.id == instance_id, Series.study_id == study_id)
+    )
+    if instance is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Instance not found")
+    return instance
+
+
 @router.get("/studies/{study_id}/instances/{instance_id}/preview")
 def get_instance_preview(
     study_id: uuid.UUID,
@@ -237,17 +248,32 @@ def get_instance_preview(
     study = get_study(db, study_id=study_id, organization_id=current_user.organization_id)
     if study is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Study not found")
-
-    instance = db.scalar(
-        select(ImagingInstance)
-        .join(Series, Series.id == ImagingInstance.series_id)
-        .where(ImagingInstance.id == instance_id, Series.study_id == study_id)
-    )
-    if instance is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Instance not found")
+    instance = _resolve_instance(db, study_id=study_id, instance_id=instance_id)
 
     try:
         data, content_type = orthanc_client.fetch_instance_preview(instance.storage_reference)
+    except OrthancError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from None
+
+    return Response(content=data, media_type=content_type)
+
+
+@router.get("/studies/{study_id}/instances/{instance_id}/file")
+def get_instance_file(
+    study_id: uuid.UUID,
+    instance_id: uuid.UUID,
+    current_user: User = Depends(require_roles(*CLINICAL_ROLES)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """The raw DICOM Part 10 file, used by the frontend's Cornerstone3D
+    wadouri image loader to parse and render actual pixel data client-side."""
+    study = get_study(db, study_id=study_id, organization_id=current_user.organization_id)
+    if study is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Study not found")
+    instance = _resolve_instance(db, study_id=study_id, instance_id=instance_id)
+
+    try:
+        data, content_type = orthanc_client.fetch_instance_file(instance.storage_reference)
     except OrthancError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from None
 

@@ -128,3 +128,30 @@ export interface UploadResult {
   failures: UploadFailure[];
   status: StudyStatus | null;
 }
+
+export interface MeasurementRecord {
+  id: string;
+  study_id: string;
+  series_id: string | null;
+  user_id: string | null;
+  author_name: string | null;
+  type: string;
+  value: number;
+  unit: string;
+  geometry: unknown;
+  source: string;
+  created_at: string;
+}
+
+export interface AnnotationRecord {
+  id: string;
+  study_id: string;
+  series_id: string | null;
+  user_id: string;
+  author_name: string | null;
+  type: string;
+  geometry: unknown;
+  label: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+}

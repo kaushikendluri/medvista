@@ -41,8 +41,22 @@ Note: `researcher` is intentionally excluded from every identified-patient endpo
 | GET | `/studies/{id}` | (same as list) | Includes series with live `instance_count` |
 | GET | `/studies/{id}/series/{series_id}/instances` | (same as list) | Ordered by `instance_number` |
 | GET | `/studies/{id}/instances/{instance_id}/preview` | (same as list) | Proxies Orthanc's rendered preview (PNG) — auth/RBAC/org-isolation checked before the proxy call, so Orthanc itself never needs to be reachable from the frontend directly |
+| GET | `/studies/{id}/instances/{instance_id}/file` | (same as list) | Proxies Orthanc's original DICOM Part 10 file — consumed by the frontend's Cornerstone3D `wadouri` image loader, which parses the real dataset client-side |
 
 A re-upload of an already-stored SOP instance is idempotent: `instances_already_present` increments instead of creating a duplicate row. A `study_uid` that already exists under a different patient is rejected per-file rather than silently reassigned.
+
+## Imaging review (measurements & annotations)
+
+| Method | Path | Roles | Notes |
+|---|---|---|---|
+| GET | `/studies/{id}/measurements` | hospital_admin, doctor, radiologist, technician (view), super_admin | |
+| POST | `/studies/{id}/measurements` | hospital_admin, doctor, radiologist, super_admin | `source` is always `"physician"` here — AI-sourced measurements are written by the Phase 4 pipeline, never this endpoint |
+| DELETE | `/measurements/{id}` | creator, or hospital_admin/super_admin | 403 for any other user, including other doctors |
+| GET | `/studies/{id}/annotations` | (same view roles as measurements) | |
+| POST | `/studies/{id}/annotations` | (same create roles as measurements) | |
+| DELETE | `/annotations/{id}` | creator, or hospital_admin/super_admin | |
+
+Geometry is stored exactly as Cornerstone3D's own tool state represents it (world-space handle points) rather than reprojected into a custom coordinate scheme. Today the viewer surfaces saved measurements/annotations as a real, accurate list (value, unit, author, timestamp — see the study viewer's right panel); re-rendering them back onto the canvas as overlays on revisit is not yet implemented, since it would need world-to-image coordinate reconstruction not yet validated end-to-end.
 
 ## Dashboard
 

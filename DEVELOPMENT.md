@@ -48,6 +48,19 @@ cd backend
 DATABASE_URL=postgresql+psycopg://medvista:medvista@localhost:5433/medvista pytest -q
 ```
 
+## Note on the imaging viewer and Docker Desktop on Windows
+
+The study viewer route (`/patients/[id]/studies/[studyId]`) pulls in the full Cornerstone3D stack (`@cornerstonejs/core`, `tools`, `dicom-image-loader` and its WASM codecs) — a large module graph. In Next.js dev mode, the **first** request to that route triggers an on-demand compile that can take 60–90s natively, and can stall for many minutes under Docker Desktop on Windows specifically, because bind-mounted `node_modules` (`./frontend:/app`) pay a severe per-file I/O penalty across the Docker Desktop VM boundary — webpack's dev compiler touches thousands of small files in `@cornerstonejs/*`.
+
+If that route seems to hang in `docker compose logs frontend` right after `○ Compiling /patients/[id]/studies/[studyId] ...` for more than ~2 minutes with no progress:
+
+```bash
+docker compose stop frontend
+cd frontend && npm install && BACKEND_INTERNAL_URL=http://localhost:8000 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
+```
+
+Running natively avoids the bind-mount overhead entirely (the same first compile takes ~70s instead of stalling indefinitely) and still talks to the same Dockerized backend/Postgres/Orthanc. This is a Windows/Docker Desktop dev-mode characteristic, not a code issue — `next build` (production) is unaffected either way, since it doesn't re-compile per-route on demand.
+
 ## Running the frontend natively
 
 ```bash

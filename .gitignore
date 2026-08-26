@@ -29,6 +29,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code session artifacts
+.claude/
+
 # Docker volumes
 pgdata/
 orthanc-db/

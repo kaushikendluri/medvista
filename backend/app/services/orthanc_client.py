@@ -56,6 +56,26 @@ def upload_instance(dicom_bytes: bytes) -> dict:
     return response.json()
 
 
+def fetch_instance_file(orthanc_instance_id: str) -> tuple[bytes, str]:
+    """The original, untranscoded DICOM Part 10 file — used by the frontend
+    viewer's wadouri loader, which parses the real dataset client-side
+    rather than relying on a flattened preview image."""
+    try:
+        with _client() as client:
+            response = client.get(f"/instances/{orthanc_instance_id}/file")
+    except httpx.HTTPError as exc:
+        raise OrthancError(f"Unable to reach the DICOM server: {exc}") from None
+
+    if response.status_code == 404:
+        raise OrthancError("Instance not found on DICOM server", status_code=404)
+    if response.status_code != 200:
+        raise OrthancError(
+            f"DICOM server error fetching file (HTTP {response.status_code})",
+            status_code=response.status_code,
+        )
+    return response.content, "application/dicom"
+
+
 def fetch_instance_preview(orthanc_instance_id: str) -> tuple[bytes, str]:
     """Rendered preview image for an instance. Returns (bytes, content_type)."""
     try:

@@ -1,10 +1,14 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/States";
+import { DicomViewport, type DicomViewportHandle, type PersistedAnnotationPayload } from "@/components/imaging/DicomViewport";
+import { ViewerToolbar } from "@/components/imaging/ViewerToolbar";
+import { MeasurementsPanel } from "@/components/imaging/MeasurementsPanel";
+import { setActivePrimaryTool, type ToolKey } from "@/lib/cornerstone-viewer";
 import { formatDate } from "@/lib/utils";
 import type { InstanceSummary, StudyDetail } from "@/types";
 
@@ -14,8 +18,14 @@ export default function StudyViewerPage({
   params: Promise<{ id: string; studyId: string }>;
 }) {
   const { id: patientId, studyId } = use(params);
+  const queryClient = useQueryClient();
+  const viewportRef = useRef<DicomViewportHandle>(null);
+
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
-  const [instanceIndex, setInstanceIndex] = useState(0);
+  const [activeTool, setActiveTool] = useState<ToolKey>("WindowLevel");
+  const [imageIndex, setImageIndex] = useState(0);
+  const [imageCount, setImageCount] = useState(0);
+  const [viewerError, setViewerError] = useState<string | null>(null);
 
   const studyQuery = useQuery({
     queryKey: ["study", studyId],
@@ -24,9 +34,7 @@ export default function StudyViewerPage({
 
   useEffect(() => {
     const firstSeries = studyQuery.data?.series[0];
-    if (firstSeries && !selectedSeriesId) {
-      setSelectedSeriesId(firstSeries.id);
-    }
+    if (firstSeries && !selectedSeriesId) setSelectedSeriesId(firstSeries.id);
   }, [studyQuery.data, selectedSeriesId]);
 
   const instancesQuery = useQuery({
@@ -36,9 +44,54 @@ export default function StudyViewerPage({
     enabled: !!selectedSeriesId,
   });
 
+  const imageIds = useMemo(() => {
+    const instances = instancesQuery.data ?? [];
+    return instances.map(
+      (instance) => `wadouri:/api/proxy/studies/${studyId}/instances/${instance.id}/file`,
+    );
+  }, [instancesQuery.data, studyId]);
+
   useEffect(() => {
-    setInstanceIndex(0);
+    setViewerError(null);
   }, [selectedSeriesId]);
+
+  const saveMeasurement = useMutation({
+    mutationFn: (payload: PersistedAnnotationPayload) =>
+      api.post(`studies/${studyId}/measurements`, {
+        series_id: selectedSeriesId,
+        type: "length",
+        value: payload.value ?? 0,
+        unit: payload.unit ?? "mm",
+        geometry: payload.geometry,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["measurements", studyId] }),
+  });
+
+  const saveAnnotation = useMutation({
+    mutationFn: (payload: PersistedAnnotationPayload) =>
+      api.post(`studies/${studyId}/annotations`, {
+        series_id: selectedSeriesId,
+        type: "arrow",
+        label: payload.label ?? "",
+        geometry: payload.geometry,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["annotations", studyId] }),
+  });
+
+  function handleAnnotationCompleted(payload: PersistedAnnotationPayload) {
+    if (payload.kind === "measurement") saveMeasurement.mutate(payload);
+    else saveAnnotation.mutate(payload);
+  }
+
+  function handleToolChange(tool: ToolKey) {
+    setActiveTool(tool);
+    try {
+      setActivePrimaryTool(tool);
+    } catch {
+      // Tool group not ready yet (viewport still initializing) — the next
+      // render of DicomViewport establishes it, so this is a harmless no-op.
+    }
+  }
 
   if (studyQuery.isLoading) return <div className="px-6 py-8"><LoadingState label="Loading study…" /></div>;
   if (studyQuery.isError || !studyQuery.data)
@@ -49,8 +102,6 @@ export default function StudyViewerPage({
     );
 
   const study = studyQuery.data;
-  const instances = instancesQuery.data ?? [];
-  const currentInstance = instances[instanceIndex];
 
   return (
     <div className="flex h-full flex-col">
@@ -71,6 +122,14 @@ export default function StudyViewerPage({
           </p>
         </div>
       </div>
+
+      <ViewerToolbar
+        activeTool={activeTool}
+        onToolChange={handleToolChange}
+        onPreset={(ww, wc) => viewportRef.current?.applyWindowLevel(ww, wc)}
+        onReset={() => viewportRef.current?.reset()}
+        onInvert={() => viewportRef.current?.toggleInvert()}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-56 shrink-0 overflow-y-auto border-r border-base-700/60 bg-base-900/30 p-3">
@@ -95,45 +154,66 @@ export default function StudyViewerPage({
           </div>
         </aside>
 
-        <main className="flex flex-1 flex-col items-center justify-center bg-black/40 p-6">
-          {instancesQuery.isLoading && <LoadingState label="Loading images…" />}
-          {instances.length === 0 && !instancesQuery.isLoading && (
-            <EmptyState title="No images in this series." />
+        <main className="relative flex flex-1 flex-col bg-black/40">
+          {instancesQuery.isLoading && (
+            <div className="flex flex-1 items-center justify-center">
+              <LoadingState label="Loading images…" />
+            </div>
           )}
-          {currentInstance && (
+          {imageIds.length === 0 && !instancesQuery.isLoading && (
+            <div className="flex flex-1 items-center justify-center">
+              <EmptyState title="No images in this series." />
+            </div>
+          )}
+          {viewerError && (
+            <div className="flex flex-1 items-center justify-center">
+              <ErrorState message={viewerError} />
+            </div>
+          )}
+          {imageIds.length > 0 && !viewerError && (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/proxy/studies/${studyId}/instances/${currentInstance.id}/preview`}
-                alt={`Instance ${currentInstance.instance_number ?? instanceIndex + 1}`}
-                className="max-h-[70vh] max-w-full rounded-md border border-base-700/60 object-contain"
-              />
-              <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
+              <div className="flex-1">
+                <DicomViewport
+                  key={selectedSeriesId}
+                  ref={viewportRef}
+                  imageIds={imageIds}
+                  onIndexChange={(index, total) => {
+                    setImageIndex(index);
+                    setImageCount(total);
+                  }}
+                  onAnnotationCompleted={handleAnnotationCompleted}
+                  onError={setViewerError}
+                />
+              </div>
+              <div className="flex items-center justify-center gap-4 border-t border-base-700/60 bg-base-900/40 px-4 py-2 text-xs text-slate-400">
                 <button
-                  disabled={instanceIndex === 0}
-                  onClick={() => setInstanceIndex((i) => Math.max(0, i - 1))}
+                  disabled={imageIndex === 0}
+                  onClick={() => viewportRef.current?.goToIndex(Math.max(0, imageIndex - 1))}
                   className="focus-ring rounded-md border border-base-600 px-2.5 py-1 disabled:opacity-30"
                 >
                   ← Previous
                 </button>
                 <span className="font-mono">
-                  Image {instanceIndex + 1} of {instances.length}
+                  Image {imageCount === 0 ? 0 : imageIndex + 1} of {imageCount}
                 </span>
                 <button
-                  disabled={instanceIndex >= instances.length - 1}
-                  onClick={() => setInstanceIndex((i) => Math.min(instances.length - 1, i + 1))}
+                  disabled={imageIndex >= imageCount - 1}
+                  onClick={() => viewportRef.current?.goToIndex(Math.min(imageCount - 1, imageIndex + 1))}
                   className="focus-ring rounded-md border border-base-600 px-2.5 py-1 disabled:opacity-30"
                 >
                   Next →
                 </button>
+                <span className="ml-4 text-[10px] text-slate-600">
+                  Scroll wheel scrolls the stack · left-drag: {activeTool} · right-drag: zoom · middle-drag: pan
+                </span>
               </div>
-              <p className="mt-3 max-w-md text-center text-[11px] text-slate-600">
-                Basic preview rendering. Window/level, zoom/pan, measurements, and
-                annotations arrive with the full imaging viewer in Phase 3.
-              </p>
             </>
           )}
         </main>
+
+        <aside className="w-72 shrink-0 border-l border-base-700/60 bg-base-900/30">
+          <MeasurementsPanel studyId={studyId} />
+        </aside>
       </div>
     </div>
   );
