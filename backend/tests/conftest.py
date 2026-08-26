@@ -1,8 +1,16 @@
 import os
 
+# A dedicated disposable Postgres, deliberately not the dev docker-compose
+# instance on 5433 — this suite truncates every table before each test,
+# which would destroy the dev/demo data otherwise.
 os.environ.setdefault(
-    "DATABASE_URL", "postgresql+psycopg://medvista:medvista@localhost:5433/medvista"
+    "DATABASE_URL", "postgresql+psycopg://medvista:medvista@localhost:5434/medvista"
 )
+# The dev docker-compose Orthanc, shared and safe to write synthetic test
+# studies into.
+os.environ.setdefault("DICOM_SERVER_URL", "http://localhost:8042")
+os.environ.setdefault("DICOM_SERVER_USERNAME", "orthanc")
+os.environ.setdefault("DICOM_SERVER_PASSWORD", "orthanc")
 
 import pytest
 from fastapi.testclient import TestClient

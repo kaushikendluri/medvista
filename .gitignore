@@ -17,6 +17,7 @@ frontend/.next/
 frontend/out/
 frontend/.turbo/
 frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
 
 # Build artifacts
 dist/

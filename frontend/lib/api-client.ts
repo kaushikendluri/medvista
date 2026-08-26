@@ -37,3 +37,42 @@ export const api = {
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+/**
+ * Multipart upload with real byte-level progress via XHR (fetch has no
+ * upload progress event). Used for DICOM study upload.
+ */
+export function uploadWithProgress<T>(
+  path: string,
+  files: File[],
+  onProgress: (percent: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    for (const file of files) form.append("files", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/proxy/${path}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+
+    xhr.onload = () => {
+      let data: unknown = null;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        // no JSON body
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T);
+      } else {
+        reject(new ApiError(xhr.status, data));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Network error during upload"));
+
+    xhr.send(form);
+  });
+}

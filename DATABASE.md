@@ -27,12 +27,12 @@ PostgreSQL, managed via Alembic (`backend/alembic/versions/`). No manual schema 
 | `medications` | patient_id, name, dosage, frequency, status | Populated from Phase 5 |
 | `patient_events` | patient_id, event_type, title, event_timestamp | Catch-all for timeline entries with no dedicated table (appointments, notes) |
 
-### Imaging (Phase 2+)
+### Imaging (Phase 2 — implemented)
 | Table | Key columns | Notes |
 |---|---|---|
 | `studies` | patient_id, study_uid (unique), modality, status | `status` enum tracks upload/processing pipeline |
-| `series` | study_id, series_uid (unique), instance_count | |
-| `imaging_instances` | series_id, sop_instance_uid (unique), storage_reference | Points at object storage, not the DICOM bytes themselves |
+| `series` | study_id, series_uid (unique), instance_count | `instance_count` is incremented as real instances are registered, never set directly |
+| `imaging_instances` | series_id, sop_instance_uid (unique), storage_reference | `storage_reference` holds the Orthanc instance ID (Orthanc is the storage backend for Phase 2; swapping in dedicated S3-compatible storage later needs no schema change) |
 
 ### AI (Phase 4+)
 | Table | Key columns | Notes |

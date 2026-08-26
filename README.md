@@ -4,7 +4,7 @@
 
 MedVista is a unified clinical workspace where physicians can manage patients, ingest and review DICOM imaging, run AI-assisted analysis, compare studies over time, and draft reports — all backed by real, persisted data. It is a research/education/prototype system, not an autonomous diagnostic tool.
 
-> **Status:** Phase 1 (Foundation) complete and tested. See [Roadmap](#roadmap) below.
+> **Status:** Phases 1–2 (Foundation, Imaging Ingestion) complete and tested end-to-end via Docker. See [Roadmap](#roadmap) below.
 
 ---
 
@@ -117,7 +117,7 @@ DATABASE_URL=postgresql+psycopg://medvista:medvista@localhost:5432/medvista pyte
 ## Roadmap
 
 - [x] **Phase 1 — Foundation:** schema, auth, RBAC, patient CRUD, audit log, dynamic dashboard
-- [ ] **Phase 2 — Imaging ingestion:** Orthanc integration, DICOM upload, metadata extraction, study/series records
+- [x] **Phase 2 — Imaging ingestion:** Orthanc integration, DICOM upload (with real progress), metadata extraction, study/series/instance records, basic preview viewer
 - [ ] **Phase 3 — Viewer:** Cornerstone3D viewport, window/level, measurements, annotations
 - [ ] **Phase 4 — AI pipeline:** model registry, async job queue, findings + evidence, overlays
 - [ ] **Phase 5 — Clinical intelligence:** timeline, comparison engine, evidence panel, reports

@@ -32,6 +32,18 @@ All endpoints except `/auth/login` require `Authorization: Bearer <jwt>`. The fr
 
 Note: `researcher` is intentionally excluded from every identified-patient endpoint above — that role is scoped to de-identified research data (Phase 7), not real patient records.
 
+## Studies (imaging)
+
+| Method | Path | Roles | Notes |
+|---|---|---|---|
+| POST | `/patients/{id}/studies/upload` | hospital_admin, doctor, radiologist, technician | Multipart upload — individual `.dcm` files and/or `.zip` archives. Validates each file, extracts metadata via pydicom, uploads to Orthanc, upserts `studies`/`series`/`imaging_instances`. Per-file failures don't abort the batch; response lists every failure with its reason. Returns 503 if Orthanc is unreachable. |
+| GET | `/patients/{id}/studies` | (same as list) | Real studies only — empty list until something is uploaded |
+| GET | `/studies/{id}` | (same as list) | Includes series with live `instance_count` |
+| GET | `/studies/{id}/series/{series_id}/instances` | (same as list) | Ordered by `instance_number` |
+| GET | `/studies/{id}/instances/{instance_id}/preview` | (same as list) | Proxies Orthanc's rendered preview (PNG) — auth/RBAC/org-isolation checked before the proxy call, so Orthanc itself never needs to be reachable from the frontend directly |
+
+A re-upload of an already-stored SOP instance is idempotent: `instances_already_present` increments instead of creating a duplicate row. A `study_uid` that already exists under a different patient is rejected per-file rather than silently reassigned.
+
 ## Dashboard
 
 | Method | Path | Roles | Notes |
@@ -56,4 +68,4 @@ Validation errors return HTTP 422 with FastAPI/Pydantic's standard `{"detail": [
 
 ## Planned (not yet implemented — do not build a frontend against these)
 
-`POST /studies/upload`, `GET /studies/:id/series`, `POST /studies/:id/analyze`, `GET /studies/:id/findings`, `POST /findings/:id/review`, `POST /studies/:id/compare`, `POST /annotations`, `GET/POST /reports`, `POST /reports/:id/finalize`, `POST /copilot/query` — arrive with their respective phases in the [roadmap](README.md#roadmap).
+`POST /studies/:id/analyze`, `GET /studies/:id/findings`, `POST /findings/:id/review`, `POST /studies/:id/compare`, `POST /annotations`, `GET/POST /reports`, `POST /reports/:id/finalize`, `POST /copilot/query` — arrive with their respective phases in the [roadmap](README.md#roadmap).

@@ -5,6 +5,10 @@ import { backendUrl, getSessionToken } from "@/lib/auth";
  * Backend-for-frontend proxy: forwards authenticated requests to the FastAPI
  * backend using the JWT held in the httpOnly session cookie, so the token
  * never reaches client-side JavaScript.
+ *
+ * Bodies are forwarded as raw ArrayBuffers in both directions so binary
+ * payloads (multipart DICOM uploads, PNG previews) pass through untouched —
+ * this must never assume JSON or text.
  */
 async function handle(request: NextRequest, params: { path: string[] }) {
   const token = await getSessionToken();
@@ -16,27 +20,25 @@ async function handle(request: NextRequest, params: { path: string[] }) {
   const search = request.nextUrl.search;
   const url = backendUrl(`/api/v1/${path}${search}`);
 
-  const init: RequestInit = {
-    method: request.method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  };
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const incomingContentType = request.headers.get("content-type");
+  if (incomingContentType) headers["Content-Type"] = incomingContentType;
+
+  const init: RequestInit = { method: request.method, headers, cache: "no-store" };
 
   if (request.method !== "GET" && request.method !== "HEAD") {
-    const text = await request.text();
-    if (text) init.body = text;
+    const buffer = await request.arrayBuffer();
+    if (buffer.byteLength > 0) init.body = buffer;
   }
 
   const backendResponse = await fetch(url, init);
-  const contentType = backendResponse.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    return new NextResponse(await backendResponse.text(), { status: backendResponse.status });
-  }
-  const data = await backendResponse.json();
-  return NextResponse.json(data, { status: backendResponse.status });
+  const responseBuffer = await backendResponse.arrayBuffer();
+  const responseContentType = backendResponse.headers.get("content-type") ?? "application/octet-stream";
+
+  return new NextResponse(responseBuffer, {
+    status: backendResponse.status,
+    headers: { "Content-Type": responseContentType },
+  });
 }
 
 export async function GET(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {

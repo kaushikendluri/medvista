@@ -1,37 +1,47 @@
 # DICOM Architecture
 
-**Status: not yet implemented (Phase 2).** This document describes the intended design so imaging ingestion lands against the schema already in place.
+**Status: ingestion implemented (Phase 2). Full diagnostic viewer (window/level, zoom/pan, measurements, annotations) is Phase 3.**
 
 ## Server
 
-[Orthanc](https://www.orthanc-server.com/) with DICOMweb enabled, run via `docker-compose.yml` (REST API on `8042`, DICOM protocol on `4242`). Credentials are read from `DICOM_SERVER_URL` / `DICOM_SERVER_USERNAME` / `DICOM_SERVER_PASSWORD` (env only).
+[Orthanc](https://www.orthanc-server.com/) (`orthancteam/orthanc:26.8.1`), run via `docker-compose.yml` (REST API on `8042`, DICOM protocol on `4242`). Credentials are read from `DICOM_SERVER_URL` / `DICOM_SERVER_USERNAME` / `DICOM_SERVER_PASSWORD` (env only) — see `app/services/orthanc_client.py`.
 
-## Ingestion flow
+## Ingestion flow (implemented)
 
 ```
-Select files (DICOM / folder / ZIP)
+POST /patients/{id}/studies/upload — multipart, .dcm files and/or .zip archives
     │
-    ▼  validate file type + size limits
-Extract metadata (pydicom) — StudyInstanceUID, SeriesInstanceUID,
-    SOPInstanceUID, modality, study date, body part, manufacturer, ...
+    ▼  validate DICOM header + 100MB/instance, 500MB/request limits
+Extract metadata (pydicom, app/services/dicom_metadata.py) — StudyInstanceUID,
+    SeriesInstanceUID, SOPInstanceUID, modality, study date, body part,
+    institution, accession number, series/instance number — read from the
+    file's own header only, nothing inferred
     │
     ▼
-Upload to Orthanc via DICOMweb STOW-RS
+Upload raw DICOM bytes to Orthanc (its classic REST API, POST /instances —
+    simpler than hand-rolling DICOMweb STOW-RS multipart framing for a
+    server we control; WADO-RS remains the Phase 3 retrieval path)
     │
-    ▼  identify or create matching rows
+    ▼  upsert, keyed by UID — re-uploading the same instance is a no-op,
+    │  not a duplicate; a study_uid already owned by a different patient
+    │  is rejected per-file rather than silently reassigned
 studies / series / imaging_instances (see DATABASE.md)
     │
     ▼
-Study becomes visible in the patient profile with real, extracted
-metadata — nothing in this table is ever hand-populated.
+Study appears in the patient profile with the real extracted metadata.
+Each instance's rendered preview is fetched on demand through
+GET /studies/{id}/instances/{instance_id}/preview, which proxies
+Orthanc's own preview rendering — the frontend never talks to Orthanc
+directly, so RBAC/org-isolation is enforced before every image byte
+is served.
 ```
 
-`Study.status` tracks real pipeline state (`pending → uploading → processing → ready`, or `failed` with the underlying error surfaced to the user) — progress shown in the UI must reflect this column, not a simulated timer.
+Per-file failures (invalid DICOM, cross-patient UID conflict, Orthanc unreachable) don't abort the batch — the response lists every failure with its actual reason, and valid files in the same request still get indexed. `Study.status` reflects real pipeline state (`processing` while a batch is mid-flight, `ready` once at least one instance is indexed).
 
-## Viewer
+## Basic viewer (implemented) vs. full viewer (Phase 3)
 
-Cornerstone3D (via OHIF building blocks where useful) consuming the study over DICOMweb (WADO-RS) from Orthanc — not a custom-built DICOM renderer. Window/level presets (lung/bone/soft-tissue/brain), measurements, and annotations operate on the real viewport and persist to the `measurements`/`annotations` tables (Phase 3).
+The patient profile's study page (`/patients/[id]/studies/[studyId]`) lets a user pick a series and step through its instances via Orthanc's rendered preview — real pixel data from the uploaded file, not a placeholder image. What's *not* here yet: window/level, zoom/pan, measurements, and annotations, which need Cornerstone3D operating on the actual pixel data (via WADO-RS) rather than a flattened preview PNG. The UI says so explicitly rather than pretending those tools exist.
 
-## Why this isn't stubbed with fake studies
+## Why this wasn't stubbed with fake studies
 
-The `studies`/`series`/`imaging_instances` tables already exist (Phase 1 migration) specifically so Phase 2 only has to add the ingestion pipeline and viewer — not retrofit the data model. Until Phase 2 ships, patient profiles correctly show "No imaging studies available," which is a real empty-table query result, not a hardcoded string keyed off a feature flag.
+The `studies`/`series`/`imaging_instances` tables existed since the Phase 1 migration specifically so Phase 2 only had to add the ingestion pipeline — not retrofit the data model. Before any upload, patient profiles correctly showed "No imaging studies available," a real empty-table query result, never a hardcoded string.

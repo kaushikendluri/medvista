@@ -80,3 +80,51 @@ export interface Page<T> {
   page: number;
   page_size: number;
 }
+
+export type StudyStatus = "pending" | "uploading" | "processing" | "ready" | "failed";
+
+export interface StudySummary {
+  id: string;
+  patient_id: string;
+  study_uid: string;
+  accession_number: string | null;
+  modality: string;
+  study_description: string | null;
+  study_date: string | null;
+  institution: string | null;
+  body_part: string | null;
+  status: StudyStatus;
+}
+
+export interface SeriesSummary {
+  id: string;
+  series_uid: string;
+  modality: string;
+  description: string | null;
+  series_number: number | null;
+  instance_count: number;
+}
+
+export interface StudyDetail extends StudySummary {
+  series: SeriesSummary[];
+}
+
+export interface InstanceSummary {
+  id: string;
+  sop_instance_uid: string;
+  instance_number: number | null;
+}
+
+export interface UploadFailure {
+  filename: string;
+  reason: string;
+}
+
+export interface UploadResult {
+  study_id: string | null;
+  files_received: number;
+  instances_created: number;
+  instances_already_present: number;
+  failures: UploadFailure[];
+  status: StudyStatus | null;
+}

@@ -24,7 +24,7 @@ services:
       - "6379:6379"
 
   orthanc:
-    image: orthancteam/orthanc:24.11.3
+    image: orthancteam/orthanc:26.8.1
     ports:
       - "8042:8042" # REST / DICOMweb
       - "4242:4242" # DICOM protocol
