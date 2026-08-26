@@ -4,7 +4,6 @@ Never hardcode secrets or connection strings here — this module only defines
 the shape of configuration and safe local-dev defaults for non-secret values.
 """
 from functools import lru_cache
-from typing import List
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -57,8 +56,14 @@ class Settings(BaseSettings):
     ENABLE_RESEARCH_MODE: bool = False
     ENABLE_COLLABORATION: bool = False
 
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # CORS — comma-separated origins; use `cors_origins` for the parsed list.
+    # Kept as a plain string field because pydantic-settings attempts to
+    # JSON-decode env values for list-typed fields before any validator runs.
+    CORS_ORIGINS: str = "http://localhost:3000"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 
 @lru_cache
