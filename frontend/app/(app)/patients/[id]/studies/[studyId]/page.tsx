@@ -8,6 +8,7 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/common/States
 import { DicomViewport, type DicomViewportHandle, type PersistedAnnotationPayload } from "@/components/imaging/DicomViewport";
 import { ViewerToolbar } from "@/components/imaging/ViewerToolbar";
 import { MeasurementsPanel } from "@/components/imaging/MeasurementsPanel";
+import { AIAnalysisPanel } from "@/components/ai/AIAnalysisPanel";
 import { setActivePrimaryTool, type ToolKey } from "@/lib/cornerstone-viewer";
 import { formatDate } from "@/lib/utils";
 import type { InstanceSummary, StudyDetail } from "@/types";
@@ -211,7 +212,8 @@ export default function StudyViewerPage({
           )}
         </main>
 
-        <aside className="w-72 shrink-0 border-l border-base-700/60 bg-base-900/30">
+        <aside className="w-72 shrink-0 divide-y divide-base-700/60 overflow-y-auto border-l border-base-700/60 bg-base-900/30">
+          <AIAnalysisPanel studyId={studyId} />
           <MeasurementsPanel studyId={studyId} />
         </aside>
       </div>

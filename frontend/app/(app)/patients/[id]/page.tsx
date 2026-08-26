@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/States";
 import { StudiesSection } from "@/components/imaging/StudiesSection";
+import { PatientFindingsSection } from "@/components/ai/PatientFindingsSection";
 import { formatDate, formatDateTime, initials } from "@/lib/utils";
 import type { ClinicalHistoryEntry, Patient, TimelineEvent } from "@/types";
 
@@ -111,7 +112,7 @@ export default function PatientProfilePage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <NotYetAvailable title="AI Findings" note="AI-assisted analysis arrives in Phase 4." />
+        <PatientFindingsSection patientId={id} />
         <NotYetAvailable title="Reports" note="Report drafting arrives in Phase 5." />
       </div>
     </div>

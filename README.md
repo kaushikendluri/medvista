@@ -4,7 +4,7 @@
 
 MedVista is a unified clinical workspace where physicians can manage patients, ingest and review DICOM imaging, run AI-assisted analysis, compare studies over time, and draft reports — all backed by real, persisted data. It is a research/education/prototype system, not an autonomous diagnostic tool.
 
-> **Status:** Phases 1–3 (Foundation, Imaging Ingestion, Viewer) complete and tested end-to-end via Docker. See [Roadmap](#roadmap) below.
+> **Status:** Phases 1–4 (Foundation, Imaging Ingestion, Viewer, AI Pipeline) complete and tested end-to-end via Docker. See [Roadmap](#roadmap) below.
 
 ---
 
@@ -24,11 +24,13 @@ Frontend (Next.js/TS)
    ▼
 FastAPI backend  ──▶  PostgreSQL (schema below)
    │                        │
-   ├─▶ Redis (jobs/cache, Phase 4+)     
-   ├─▶ Orthanc / DICOMweb (Phase 2+)
-   └─▶ AI orchestration (Phase 4+) — imaging models + clinical LLM,
-       both behind a swappable provider interface; report themselves
-       "unavailable" rather than fabricate output when unconfigured.
+   ├─▶ Redis ──▶ ai-worker (dedicated process, same codebase)
+   ├─▶ Orthanc / DICOMweb
+   └─▶ AI orchestration — imaging models + clinical LLM, both behind a
+       swappable provider interface; report themselves "unavailable"
+       rather than fabricate output when unconfigured (imaging AI is
+       wired end-to-end with zero models installed; the clinical
+       copilot LLM arrives in Phase 6).
 ```
 
 Every entity in the [full schema](#database) exists in the database from day one, even for features not yet built — so later phases add endpoints and UI against real tables instead of retrofitting the data model.
@@ -107,6 +109,15 @@ npm install
 npm run dev
 ```
 
+To process AI analysis jobs, also run the worker (separate terminal, same venv):
+
+```bash
+cd backend
+python -m app.worker
+```
+
+Or skip all of the above and run everything — including `ai-worker` — via `docker compose up -d --build` (see [DEVELOPMENT.md](DEVELOPMENT.md)).
+
 Backend tests (run against a real Postgres, not mocks):
 
 ```bash
@@ -119,8 +130,8 @@ DATABASE_URL=postgresql+psycopg://medvista:medvista@localhost:5432/medvista pyte
 - [x] **Phase 1 — Foundation:** schema, auth, RBAC, patient CRUD, audit log, dynamic dashboard
 - [x] **Phase 2 — Imaging ingestion:** Orthanc integration, DICOM upload (with real progress), metadata extraction, study/series/instance records, basic preview viewer
 - [x] **Phase 3 — Viewer:** real Cornerstone3D stack viewport (wadouri, actual pixel data), window/level presets + custom, zoom/pan, stack scroll, invert/reset, Length measurement and arrow annotation tools with backend persistence
-- [ ] **Phase 4 — AI pipeline:** model registry, async job queue, findings + evidence, overlays
-- [ ] **Phase 5 — Clinical intelligence:** timeline, comparison engine, evidence panel, reports
+- [x] **Phase 4 — AI pipeline:** model abstraction + registry, a real Redis-backed async job queue with a dedicated worker process, findings + review workflow — with zero models installed, every job honestly resolves "unavailable" with a real reason rather than fabricating output
+- [ ] **Phase 5 — Clinical intelligence:** comparison engine, evidence panel, reports (timeline already shipped in Phase 1)
 - [ ] **Phase 6 — Copilot:** retrieval-grounded clinical assistant with citations, no hallucinated findings
 - [ ] **Phase 7 — Advanced:** 3D rendering, voice mode, collaboration, research mode
 

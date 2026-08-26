@@ -34,20 +34,20 @@ PostgreSQL, managed via Alembic (`backend/alembic/versions/`). No manual schema 
 | `series` | study_id, series_uid (unique), instance_count | `instance_count` is incremented as real instances are registered, never set directly |
 | `imaging_instances` | series_id, sop_instance_uid (unique), storage_reference | `storage_reference` holds the Orthanc instance ID (Orthanc is the storage backend for Phase 2; swapping in dedicated S3-compatible storage later needs no schema change) |
 
-### AI (Phase 4+)
+### AI (Phase 4 — implemented)
 | Table | Key columns | Notes |
 |---|---|---|
-| `ai_models` | name, version, modality, task, provider, status | The model registry — frontend discovers models from here, never hardcodes names |
-| `ai_analyses` | study_id, model_id, status, error | One row per inference job run |
+| `ai_models` | name, version, modality, task, provider, status | The model catalog — frontend discovers models from here, never hardcodes names. `status` column is admin-entered intent; every API read recomputes it from the worker's actual code registry instead of trusting it (see AI.md) |
+| `ai_analyses` | study_id, model_id, status, error | One row per inference job run, processed asynchronously by the `ai-worker` service via a Redis queue |
 | `ai_findings` | analysis_id, finding_type, confidence, status, coordinates, measurement, evidence_reference | `status` enum: ai_flagged → physician_reviewing → confirmed/dismissed/uncertain |
 
-### Review artifacts (Phase 3/5+)
+### Review artifacts
 | Table | Key columns | Notes |
 |---|---|---|
-| `annotations` | study_id, series_id, user_id, type, geometry | |
-| `measurements` | study_id, series_id, user_id, value, unit, source | `source`: physician vs. AI, so the UI can never conflate the two |
-| `reports` | patient_id, study_id, author_id, status, draft_content, finalized_content | `status` enum: ai_draft → physician_draft → finalized → signed |
-| `report_versions` | report_id, version_number, author_id, content | Immutable snapshot per edit |
+| `annotations` | study_id, series_id, user_id, type, geometry | Phase 3 — implemented |
+| `measurements` | study_id, series_id, user_id, value, unit, source | Phase 3 — implemented. `source`: physician vs. AI, so the UI can never conflate the two |
+| `reports` | patient_id, study_id, author_id, status, draft_content, finalized_content | Phase 5. `status` enum: ai_draft → physician_draft → finalized → signed |
+| `report_versions` | report_id, version_number, author_id, content | Phase 5. Immutable snapshot per edit |
 
 ### Operational
 | Table | Key columns | Notes |

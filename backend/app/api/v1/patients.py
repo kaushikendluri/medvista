@@ -3,12 +3,18 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from sqlalchemy import select
+
 from app.core.deps import require_roles
 from app.db.session import get_db
+from app.models.ai_analysis import AIAnalysis
+from app.models.ai_finding import AIFinding
 from app.models.clinical_history import ClinicalHistory
 from app.models.enums import UserRole
 from app.models.patient import Patient
+from app.models.study import Study
 from app.models.user import User
+from app.schemas.ai import AIFindingRead, PatientFindingRead
 from app.schemas.clinical_history import ClinicalHistoryCreate, ClinicalHistoryRead
 from app.schemas.common import Page
 from app.schemas.dashboard import TimelineEvent
@@ -208,3 +214,28 @@ def create_clinical_history(
         resource_id=str(entry.id),
     )
     return ClinicalHistoryRead.model_validate(entry)
+
+
+@router.get("/{patient_id}/ai-findings", response_model=list[PatientFindingRead])
+def list_patient_ai_findings(
+    patient_id: uuid.UUID,
+    current_user: User = Depends(require_roles(*CLINICAL_ROLES)),
+    db: Session = Depends(get_db),
+) -> list[PatientFindingRead]:
+    """Aggregates findings across every study belonging to this patient —
+    a real join, not a per-study fetch stitched together client-side."""
+    patient = get_patient(db, patient_id=patient_id, organization_id=current_user.organization_id)
+    if patient is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    rows = db.execute(
+        select(AIFinding, Study.id)
+        .join(AIAnalysis, AIAnalysis.id == AIFinding.analysis_id)
+        .join(Study, Study.id == AIAnalysis.study_id)
+        .where(Study.patient_id == patient_id)
+        .order_by(AIFinding.created_at.desc())
+    ).all()
+    return [
+        PatientFindingRead(**AIFindingRead.model_validate(finding).model_dump(), study_id=study_id)
+        for finding, study_id in rows
+    ]

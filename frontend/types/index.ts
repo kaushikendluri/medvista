@@ -155,3 +155,58 @@ export interface AnnotationRecord {
   meta: Record<string, unknown> | null;
   created_at: string;
 }
+
+export type AIAnalysisStatus = "queued" | "running" | "completed" | "failed" | "unavailable";
+export type AIFindingStatus =
+  | "ai_flagged"
+  | "physician_reviewing"
+  | "confirmed_by_physician"
+  | "dismissed"
+  | "uncertain";
+export type ModelStatus = "available" | "unavailable" | "deprecated";
+
+export interface AIModelRecord {
+  id: string;
+  name: string;
+  version: string;
+  modality: string;
+  anatomy: string | null;
+  task: string;
+  provider: string;
+  model_location: string | null;
+  supported_input: string | null;
+  output_format: string | null;
+  status: ModelStatus;
+}
+
+export interface AIAnalysisRecord {
+  id: string;
+  study_id: string;
+  model_id: string | null;
+  model_version: string | null;
+  status: AIAnalysisStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  processing_time_seconds: number | null;
+  error: string | null;
+  created_at: string;
+}
+
+export interface AIFindingRecord {
+  id: string;
+  analysis_id: string;
+  finding_type: string;
+  description: string;
+  anatomical_region: string | null;
+  confidence: number | null;
+  severity: string | null;
+  status: AIFindingStatus;
+  coordinates: unknown;
+  measurement: unknown;
+  evidence_reference: string | null;
+  created_at: string;
+}
+
+export interface PatientFindingRecord extends AIFindingRecord {
+  study_id: string;
+}

@@ -49,6 +49,22 @@ services:
     volumes:
       - ./backend:/app
 
+  ai-worker:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-medvista}:${POSTGRES_PASSWORD:-medvista}@postgres:5432/${POSTGRES_DB:-medvista}
+      REDIS_URL: redis://redis:6379/0
+      DICOM_SERVER_URL: http://orthanc:8042
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
   frontend:
     build: ./frontend
     env_file: .env

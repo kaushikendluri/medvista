@@ -58,6 +58,21 @@ A re-upload of an already-stored SOP instance is idempotent: `instances_already_
 
 Geometry is stored exactly as Cornerstone3D's own tool state represents it (world-space handle points) rather than reprojected into a custom coordinate scheme. Today the viewer surfaces saved measurements/annotations as a real, accurate list (value, unit, author, timestamp — see the study viewer's right panel); re-rendering them back onto the canvas as overlays on revisit is not yet implemented, since it would need world-to-image coordinate reconstruction not yet validated end-to-end.
 
+## AI
+
+| Method | Path | Roles | Notes |
+|---|---|---|---|
+| GET | `/ai/models` | any authenticated | The model catalog. `status` is always computed from the worker's actual runnable-model registry, never trusted from the stored column — see [AI.md](AI.md) |
+| POST | `/ai/models` | super_admin | Catalogs a model an org intends to use; does not by itself make it runnable |
+| POST | `/studies/{id}/analyze` | hospital_admin, doctor, radiologist, super_admin | Creates a queued `ai_analyses` row and enqueues it on Redis; returns immediately |
+| GET | `/studies/{id}/analyses` | (view roles) | Job history, newest first |
+| GET | `/analyses/{id}` | (view roles) | Single job status |
+| GET | `/studies/{id}/findings` | (view roles) | Real findings only — empty until a real model produces one |
+| POST | `/findings/{id}/review` | hospital_admin, doctor, radiologist, super_admin | Transitions `ai_flagged` → `physician_reviewing`/`confirmed_by_physician`/`dismissed`/`uncertain` |
+| GET | `/patients/{id}/ai-findings` | (patient view roles) | Findings aggregated across every study for this patient, newest first |
+
+With no model implementation registered (the default), every `POST /studies/{id}/analyze` job legitimately resolves to `status=unavailable` with a specific error naming the study's modality — confirmed end-to-end against a real Redis queue and a separate worker process, not simulated.
+
 ## Dashboard
 
 | Method | Path | Roles | Notes |
@@ -82,4 +97,4 @@ Validation errors return HTTP 422 with FastAPI/Pydantic's standard `{"detail": [
 
 ## Planned (not yet implemented — do not build a frontend against these)
 
-`POST /studies/:id/analyze`, `GET /studies/:id/findings`, `POST /findings/:id/review`, `POST /studies/:id/compare`, `POST /annotations`, `GET/POST /reports`, `POST /reports/:id/finalize`, `POST /copilot/query` — arrive with their respective phases in the [roadmap](README.md#roadmap).
+`POST /studies/:id/compare`, `GET/POST /reports`, `POST /reports/:id/finalize`, `POST /copilot/query` — arrive with their respective phases in the [roadmap](README.md#roadmap).

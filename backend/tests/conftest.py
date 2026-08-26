@@ -11,6 +11,11 @@ os.environ.setdefault(
 os.environ.setdefault("DICOM_SERVER_URL", "http://localhost:8042")
 os.environ.setdefault("DICOM_SERVER_USERNAME", "orthanc")
 os.environ.setdefault("DICOM_SERVER_PASSWORD", "orthanc")
+# The dev docker-compose Redis. Jobs enqueued by tests reference analysis
+# rows that only exist in the disposable test database above; if the real
+# ai-worker dequeues one it just no-ops (process_analysis_job returns early
+# for an unknown analysis id), so sharing this instance is safe.
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -36,6 +41,15 @@ def _create_schema():
     Base.metadata.create_all(engine)
     yield
     Base.metadata.drop_all(engine)
+
+
+@pytest.fixture(autouse=True)
+def _clean_queue():
+    from app.services.queue import ANALYSIS_QUEUE_KEY, get_redis_client
+
+    get_redis_client().delete(ANALYSIS_QUEUE_KEY)
+    yield
+    get_redis_client().delete(ANALYSIS_QUEUE_KEY)
 
 
 @pytest.fixture(autouse=True)

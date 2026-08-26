@@ -32,7 +32,7 @@ export function MeasurementsPanel({ studyId }: { studyId: string }) {
   const annotationList = annotationsQuery.data ?? [];
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto p-3">
+    <div className="flex flex-col gap-4 p-3">
       <div>
         <p className="mb-2 px-1 text-[11px] uppercase tracking-wide text-slate-500">Measurements</p>
         {loading && <LoadingState label="" />}
