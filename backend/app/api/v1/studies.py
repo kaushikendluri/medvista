@@ -15,8 +15,10 @@ from app.models.imaging_instance import ImagingInstance
 from app.models.series import Series
 from app.models.study import Study
 from app.models.user import User
+from app.schemas.comparison import ComparisonResult
 from app.schemas.study import InstanceRead, SeriesRead, StudyDetail, StudyRead, UploadFailure, UploadResult
 from app.services.audit import record_audit_event
+from app.services.comparison_service import compare_studies
 from app.services.dicom_metadata import InvalidDicomFile, extract_metadata
 from app.services.orthanc_client import OrthancError
 from app.services import orthanc_client
@@ -278,3 +280,18 @@ def get_instance_file(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from None
 
     return Response(content=data, media_type=content_type)
+
+
+@router.get("/studies/{study_id}/compare/{other_study_id}", response_model=ComparisonResult)
+def compare_study(
+    study_id: uuid.UUID,
+    other_study_id: uuid.UUID,
+    current_user: User = Depends(require_roles(*CLINICAL_ROLES)),
+    db: Session = Depends(get_db),
+) -> ComparisonResult:
+    study_a = get_study(db, study_id=study_id, organization_id=current_user.organization_id)
+    study_b = get_study(db, study_id=other_study_id, organization_id=current_user.organization_id)
+    if study_a is None or study_b is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Study not found")
+
+    return compare_studies(db, study_a, study_b)

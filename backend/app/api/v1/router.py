@@ -8,6 +8,7 @@ from app.api.v1 import (
     auth,
     dashboard,
     patients,
+    reports,
     studies,
     users,
 )
@@ -20,5 +21,6 @@ api_router.include_router(studies.router)
 api_router.include_router(annotations.router)
 api_router.include_router(ai_models.router)
 api_router.include_router(ai_analysis.router)
+api_router.include_router(reports.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(audit_log.router)

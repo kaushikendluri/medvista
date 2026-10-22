@@ -28,12 +28,22 @@ export function StudiesSection({ patientId }: { patientId: string }) {
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium text-slate-300">Imaging Studies</h2>
-        <button
-          onClick={() => setShowUpload(true)}
-          className="focus-ring rounded-md border border-accent/40 px-2.5 py-1 text-xs text-accent hover:bg-accent/10"
-        >
-          + Upload Study
-        </button>
+        <div className="flex items-center gap-2">
+          {data && data.length >= 2 && (
+            <Link
+              href={`/patients/${patientId}/compare`}
+              className="focus-ring rounded-md border border-base-600 px-2.5 py-1 text-xs text-slate-300 hover:bg-base-800"
+            >
+              Compare Studies
+            </Link>
+          )}
+          <button
+            onClick={() => setShowUpload(true)}
+            className="focus-ring rounded-md border border-accent/40 px-2.5 py-1 text-xs text-accent hover:bg-accent/10"
+          >
+            + Upload Study
+          </button>
+        </div>
       </div>
 
       {isLoading && <LoadingState />}

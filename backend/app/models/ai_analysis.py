@@ -21,6 +21,9 @@ class AIAnalysis(UUIDPKMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("ai_models.id"), nullable=True
     )
     model_version: Mapped[str | None] = mapped_column(nullable=True)
+    requested_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     status: Mapped[AIAnalysisStatus] = mapped_column(
         Enum(AIAnalysisStatus, name="ai_analysis_status"),
         nullable=False,

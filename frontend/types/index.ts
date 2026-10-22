@@ -210,3 +210,74 @@ export interface AIFindingRecord {
 export interface PatientFindingRecord extends AIFindingRecord {
   study_id: string;
 }
+
+export type ReportStatus = "ai_draft" | "physician_draft" | "finalized" | "signed";
+
+export interface ReportRecord {
+  id: string;
+  patient_id: string;
+  study_id: string | null;
+  author_id: string | null;
+  author_name: string | null;
+  status: ReportStatus;
+  draft_content: string | null;
+  finalized_content: string | null;
+  signed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReportVersionRecord {
+  id: string;
+  report_id: string;
+  version_number: number;
+  author_id: string | null;
+  author_name: string | null;
+  content: string;
+  created_at: string;
+}
+
+export interface MeasurementComparison {
+  type: string;
+  unit: string;
+  value_a: number | null;
+  value_b: number | null;
+  delta: number | null;
+  percent_change: number | null;
+  note: string;
+}
+
+export interface FindingComparison {
+  finding_type: string;
+  anatomical_region: string | null;
+  relationship: "present_in_both" | "new_in_b" | "not_re_flagged_in_b";
+  finding_a: AIFindingRecord | null;
+  finding_b: AIFindingRecord | null;
+}
+
+export interface ComparisonResult {
+  comparable: boolean;
+  reason: string | null;
+  study_a: StudySummary;
+  study_b: StudySummary;
+  measurement_comparisons: MeasurementComparison[];
+  finding_comparisons: FindingComparison[];
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read: boolean;
+  reference_id: string | null;
+  created_at: string;
+}
+
+export interface SearchResultItem {
+  type: "patient" | "study" | "report";
+  id: string;
+  title: string;
+  subtitle: string | null;
+  href: string;
+}

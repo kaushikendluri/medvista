@@ -6,6 +6,7 @@ import { api } from "@/lib/api-client";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/States";
 import { StudiesSection } from "@/components/imaging/StudiesSection";
 import { PatientFindingsSection } from "@/components/ai/PatientFindingsSection";
+import { ReportsSection } from "@/components/reports/ReportsSection";
 import { formatDate, formatDateTime, initials } from "@/lib/utils";
 import type { ClinicalHistoryEntry, Patient, TimelineEvent } from "@/types";
 
@@ -113,17 +114,8 @@ export default function PatientProfilePage({ params }: { params: Promise<{ id: s
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PatientFindingsSection patientId={id} />
-        <NotYetAvailable title="Reports" note="Report drafting arrives in Phase 5." />
+        <ReportsSection patientId={id} />
       </div>
     </div>
-  );
-}
-
-function NotYetAvailable({ title, note }: { title: string; note: string }) {
-  return (
-    <section>
-      <h2 className="mb-3 text-sm font-medium text-slate-300">{title}</h2>
-      <EmptyState title="Not yet available in this build." description={note} />
-    </section>
   );
 }
