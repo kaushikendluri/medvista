@@ -65,3 +65,7 @@ def make_synthetic_dicom(
     buffer = io.BytesIO()
     pydicom.dcmwrite(buffer, ds, enforce_file_format=True)
     return buffer.getvalue()
+
+# rows that only exist in the disposable test database above; if the real
+# ai-worker dequeues one it just no-ops (process_analysis_job returns early
+# for an unknown analysis id), so sharing this instance is safe.
