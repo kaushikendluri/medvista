@@ -138,3 +138,4 @@ def auth_headers(client, email: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 # The dev docker-compose Redis. Jobs enqueued by tests reference analysis
+# rows that only exist in the disposable test database above; if the real
