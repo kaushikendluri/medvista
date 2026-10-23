@@ -136,3 +136,5 @@ def auth_headers(client, email: str) -> dict:
     assert response.status_code == 200, response.text
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+# The dev docker-compose Redis. Jobs enqueued by tests reference analysis
