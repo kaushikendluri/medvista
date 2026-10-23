@@ -24,3 +24,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+// @cornerstonejs/dicom-image-loader's WASM codec glue (Emscripten
