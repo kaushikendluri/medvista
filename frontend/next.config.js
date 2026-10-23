@@ -27,3 +27,4 @@ module.exports = nextConfig;
 // @cornerstonejs/dicom-image-loader's WASM codec glue (Emscripten
 // output) is isomorphic and references Node's `fs`/`path` behind a
 // runtime `typeof window === 'undefined'` guard for a Node fallback
+// path we never execute in the browser. Webpack still statically
