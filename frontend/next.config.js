@@ -28,3 +28,4 @@ module.exports = nextConfig;
 // output) is isomorphic and references Node's `fs`/`path` behind a
 // runtime `typeof window === 'undefined'` guard for a Node fallback
 // path we never execute in the browser. Webpack still statically
+// resolves the `require(...)` regardless of the guard, so these
