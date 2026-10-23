@@ -29,3 +29,4 @@ module.exports = nextConfig;
 // runtime `typeof window === 'undefined'` guard for a Node fallback
 // path we never execute in the browser. Webpack still statically
 // resolves the `require(...)` regardless of the guard, so these
+// built-ins must be stubbed out for the client bundle.
