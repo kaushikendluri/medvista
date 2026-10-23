@@ -141,3 +141,6 @@ def auth_headers(client, email: str) -> dict:
 # rows that only exist in the disposable test database above; if the real
 # rows that only exist in the disposable test database above; if the real
 # ai-worker dequeues one it just no-ops (process_analysis_job returns early
+# rows that only exist in the disposable test database above; if the real
+
+# for an unknown analysis id), so sharing this instance is safe.
